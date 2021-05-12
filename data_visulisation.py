@@ -1,6 +1,6 @@
 # make plots
 import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
+from matplotlib.patches import Polygon as Polygon
 import matplotlib.dates as mdates
 import cmocean # oceanogrpahy colorscales - https://matplotlib.org/cmocean/
 from datetime import datetime
@@ -12,6 +12,7 @@ from os.path import isfile, join
 from netCDF4 import Dataset
 from scipy import stats
 import seaborn as sns
+
 
 # DBUG
 import pdb
@@ -25,6 +26,9 @@ from mpl_toolkits.basemap import Basemap
 
 # local modules
 from data_processes import *
+
+# # Test polygon print
+
 
 ################
 # plot polygon #
@@ -42,7 +46,9 @@ def make_polygon(region, m):
 ###############################################
 # Check box positions relative to ROMS extent #
 ###############################################
-def check_boxROMS(box_ls, ROMS_directory, depthmax=1e10, save=False, out_fn=''):
+def check_gridROMS(polys, ROMS_directory, depthmax=1e10, save=False, 
+    out_fn='', margin=.05, clim=[0, 500], depth_unit='m', count_cells=False,
+    plot_depthmax=False):
     print('\nChecking analysis regions..')
     file_ls = [f for f in listdir(ROMS_directory) if isfile(join(ROMS_directory, f))]
     file_ls = list(filter(lambda x:'.nc' in x, file_ls))
@@ -56,27 +62,34 @@ def check_boxROMS(box_ls, ROMS_directory, depthmax=1e10, save=False, out_fn=''):
 
     # set title
     title = 'Analysis Regions'
-    if len(box_ls) == 1:
+    if len(polys) == 1:
         title = 'Analysis Region'
 
     # Check balance
-    print('Study zone balance (grid cell count)..')
-    for region, i in zip(box_ls, range(1,len(box_ls)+1)):
-        cells = count_points(lons, lats, region, bath, depthmax)
-        print('Box '+str(i)+': '+str(cells))
+    if (count_cells):
+        print('Study zone balance (grid cell count)..')
+        for region, i in zip(polys, range(1,len(polys)+1)):
+            cells = count_points(lons, lats, region, bath, depthmax)
+            print('Cell '+str(i)+': '+str(cells))
 
     # convert bath to km
-    bath = bath/1000
+    depth_conv = 1
+    if depth_unit == 'km':
+        depth_conv = 1000
+    bath = bath/depth_conv
+
+    if clim is None:
+        clim = [min(bath, max(bath))]
 
     # calculate box min max
-    box_lonMin = min([x[0] for x in box_ls])
-    box_lonMax = max([x[1] for x in box_ls])
-    box_latMin = min([x[2] for x in box_ls])
-    box_latMax = max([x[3] for x in box_ls])
+    box_lonMin = min([min(poly.exterior.xy[0]) for poly in polys])
+    box_lonMax = max([max(poly.exterior.xy[0]) for poly in polys])
+    box_latMin = min([min(poly.exterior.xy[1]) for poly in polys])
+    box_latMax = max([max(poly.exterior.xy[1]) for poly in polys])
 
     # setup map
-    m = Basemap(projection='merc', llcrnrlat=box_latMin-.2, urcrnrlat=box_latMax+.2,\
-        llcrnrlon=box_lonMin-.2, urcrnrlon=box_lonMax+.2, lat_ts=20, resolution='h')
+    m = Basemap(projection='merc', llcrnrlat=box_latMin-margin, urcrnrlat=box_latMax+margin,\
+        llcrnrlon=box_lonMin-margin, urcrnrlon=box_lonMax+margin, lat_ts=20, resolution='h')
 
     # make plot
     fig = plt.figure(figsize=(8,8))
@@ -86,30 +99,34 @@ def check_boxROMS(box_ls, ROMS_directory, depthmax=1e10, save=False, out_fn=''):
     m.drawcoastlines(color='black', linewidth=0.7)
     m.fillcontinents(color='#A0A0A0')
     # add grid
-    parallels = np.arange(-81.,0,2.)
+    parallels = np.arange(-81.,0,.2)
     m.drawparallels(parallels,labels=[True,False,False,True], linewidth=1, dashes=[3,3], color='#707070')
-    meridians = np.arange(10.,351.,2.)
+    meridians = np.arange(10.,351.,.2)
     m.drawmeridians(meridians,labels=[True,False,False,True], linewidth=1, dashes=[3,3], color='#707070')
     # add bathymetry extent
-    cs = m.pcolor(lons, lats, np.squeeze(bath), latlon=True ,vmin=0, vmax=5, cmap=cmocean.cm.deep)
-    cbar = plt.colorbar(ticks=np.arange(6))
-    CS = m.contour(lons, lats, np.squeeze(bath), [depthmax/1000], colors='k', latlon=True, linestyles='dashed', alpha=0.9)
+    cs = m.pcolor(lons, lats, np.squeeze(bath), latlon=True ,vmin=clim[0]/depth_conv, 
+        vmax=clim[1]/depth_conv, cmap=cmocean.cm.deep)
+    cbar = plt.colorbar()
+    if plot_depthmax:
+        CS = m.contour(lons, lats, np.squeeze(bath), [depthmax/depth_conv], colors='k', latlon=True, linestyles='dashed', alpha=0.9)
     cbar.ax.invert_yaxis()
-    cbar.ax.set_ylabel('Depth (km)', rotation=270, labelpad=16, size=12)
+    cbar.ax.set_ylabel('Depth ('+depth_unit+')', rotation=270, labelpad=16, size=12)
 
      # add polygons
-    for i in range(0, len(box_ls)): 
-         plt.gca().add_patch(make_polygon(box_ls[i], m))
+    for poly in polys:
+        x,y = poly.exterior.xy
+        x,y = m(x,y)
+        plt.plot(x,y, color='red')
 
     # save plot
     if save:
         print('\nSaving plot..')
         fig.savefig(out_fn)
-
-    # show plot
-    print('Close plot to continue..')
-    plt.show()
-    plt.close("all")
+    else:
+        # show plot
+        print('Close plot to continue..')
+        plt.show()
+        plt.close("all")
 
 #########################
 # Merge images together #

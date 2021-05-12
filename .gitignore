@@ -1,4 +1,5 @@
 #.gitignore
-archive
-plots
 __pycache__
+archive
+data
+plots

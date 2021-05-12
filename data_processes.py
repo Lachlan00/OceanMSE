@@ -3,6 +3,8 @@ import math
 import numpy as np
 from datetime import datetime
 from datetime import timedelta
+import copy
+from shapely import geometry
 
 #######################
 # Add to list quickly #
@@ -92,6 +94,25 @@ def boxmaker(lon_orig, lat_orig, km):
     # export region
     return region
 
+# Return a set of plotgons from a custom grid
+def grid_polygon(grid_df):
+    # iterate through h and v lines
+    polys = [None]*((max(grid_df.hline)-1)*(max(grid_df.vline)-1))
+    i = 0
+    for h in range(min(grid_df.hline), max(grid_df.hline)):
+        for v in range(min(grid_df.vline), max(grid_df.vline)):
+            polys[i] = [(h, v), (h, v+1), (h+1, v+1), (h+1, v)]
+            i += 1
+    # convert to coordinates
+    polys = [[(float(grid_df.loc[(grid_df['hline'] == p[0]) & (grid_df['vline'] == p[1])].lon),\
+               float(grid_df.loc[(grid_df['hline'] == p[0]) & (grid_df['vline'] == p[1])].lat))\
+              for p in poly] for poly in polys]
+
+    # convert to shapely polygons
+    polys = [geometry.Polygon(poly) for poly in polys]
+
+    return(polys)
+
 ##############################
 # Count points in study zone #
 ##############################
@@ -99,16 +120,17 @@ def count_points(lons, lats, region, bath=None, depthmax=1e10):
     """
     Passing bathymetry and depthmax is optional
     """
-    # if no bathymetry data, make bath = lons so depthmax logic is always True
+    # if no bathymetry data, make bath - number so always true
     if bath is None:
-        bath = lons
+        bath = copy.deepcopy(lons)
+        bath.fill(-1e10)
     # make generator of all points
     point_tuple = zip(lats.ravel(), lons.ravel(), bath.ravel())
-    # iterate over tuple points and keep every point that is in box
+    # iterate over tuple points and keep every point that is in cell
     point_list = []
     j = 0
-    for i in point_tuple:
-        if region[2] <= i[0] <= region[3] and region[0] <= i[1] <= region[1] and i[2] < depthmax:
+    for p in point_tuple:
+        if region.contains(geometry.Point(p[1], p[0])) and (p[2] <= depthmax):
             point_list.append(j)
         j = j + 1
 
