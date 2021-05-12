@@ -12,11 +12,11 @@ from data_processes import *
 
 def region_mean(var, fh, frame_time, frame_idx, eta_rho, xi_rho):
     # get temperature and salinity data in region of interest
-    temp = fh.variables[var][frame_idx,29,:,:][eta_rho, xi_rho]
+    data = fh.variables[var][frame_idx,29,:,:][eta_rho, xi_rho]
 
-    return [frame_time, temp.mean()]
+    return [frame_time, data.mean()]
 
-def region_mean_ts(ROMS_directory, var, region, depthmax=1e10):
+def region_mean_ts(ROMS_directory, var, region, grid=None, depthmax=1e10):
     """
     depthmax in meters (arbitarily large by default)
     """

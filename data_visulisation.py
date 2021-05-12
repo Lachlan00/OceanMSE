@@ -13,11 +13,12 @@ from netCDF4 import Dataset
 from scipy import stats
 import seaborn as sns
 
+# DBUG
+import pdb
+
 # Hack to fix missing PROJ4 env var for basemap
 import os
-import conda
-conda_file_dir = conda.__file__
-conda_dir = conda_file_dir.split('lib')[0]
+conda_dir = '/Users/lachlanphillips/miniconda3/'
 proj_lib = os.path.join(os.path.join(conda_dir, 'share'), 'proj')
 os.environ["PROJ_LIB"] = proj_lib
 from mpl_toolkits.basemap import Basemap
@@ -67,9 +68,15 @@ def check_boxROMS(box_ls, ROMS_directory, depthmax=1e10, save=False, out_fn=''):
     # convert bath to km
     bath = bath/1000
 
+    # calculate box min max
+    box_lonMin = min([x[0] for x in box_ls])
+    box_lonMax = max([x[1] for x in box_ls])
+    box_latMin = min([x[2] for x in box_ls])
+    box_latMax = max([x[3] for x in box_ls])
+
     # setup map
-    m = Basemap(projection='merc', llcrnrlat=lats.min()-1, urcrnrlat=lats.max()+1,\
-        llcrnrlon=lons.min()-1, urcrnrlon=lons.max()+1, lat_ts=20, resolution='h')
+    m = Basemap(projection='merc', llcrnrlat=box_latMin-.2, urcrnrlat=box_latMax+.2,\
+        llcrnrlon=box_lonMin-.2, urcrnrlon=box_lonMax+.2, lat_ts=20, resolution='h')
 
     # make plot
     fig = plt.figure(figsize=(8,8))

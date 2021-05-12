@@ -4,19 +4,22 @@ from data_processes import *
 from data_visulisation import *
 from pymse import mse
 
+# DBUG
+import pdb
+
 #################
 # Configuration #
 #################
 
 # directories
-ROMS_directory = '/Users/lachlanphillips/PhD_Large_Data/ROMS/Montague_subset'
+ROMS_directory = '/Volumes/LP_MstrData/master-data/ocean/ROMS/highres'
 
 # Study zone
-BateBox = boxmaker(150.2269, -36.25201, 25)
+BateBox = boxmaker(150.2269, -36.25201, 20)
 
 # check study zone box positions
 check_boxROMS([BateBox], ROMS_directory, 
-			depthmax=4000, save=True, out_fn='./plots/study_zones.png')
+            depthmax=4000, save=True, out_fn='./plots/study_zones.png')
 
 # get the mean of the dataset
 df_mean_temp = region_mean_ts(ROMS_directory, 'temp', BateBox, depthmax=1e10)
